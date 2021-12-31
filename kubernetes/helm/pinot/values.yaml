@@ -25,7 +25,7 @@ image:
   pullPolicy: IfNotPresent
 
 cluster:
-  name: pinot-quickstart
+  name: pinot-poc-cluster
 
 imagePullSecrets: []
 
@@ -76,14 +76,14 @@ controller:
     storageClass: ""
 
   data:
-    dir: /var/pinot/controller/data
+    dir: s3://wix-bi-pinot-warehouse/pinot-poc/controller-data
 
   vip:
     enabled: false
     host: pinot-controller
     port: 9000
 
-  jvmOpts: "-Xms256M -Xmx1G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-controller.log"
+  jvmOpts: "-Xms2G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-controller.log"
 
   log4j2ConfFile: /opt/pinot/conf/log4j2.xml
   pluginsDir: /opt/pinot/plugins
@@ -104,7 +104,8 @@ controller:
     enabled: true
     type: LoadBalancer
     port: 9000
-    annotations: {}
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-internal: "true"
 
   resources: {}
 
@@ -139,6 +140,11 @@ controller:
     configs: |-
       pinot.set.instance.id.to.hostname=true
       controller.task.scheduler.enabled=true
+      controller.local.temp.dir=/tmp/pinot-tmp-data/
+      pinot.controller.storage.factory.class.s3=org.apache.pinot.plugin.filesystem.S3PinotFS
+      pinot.controller.storage.factory.s3.region=us-east-1
+      pinot.controller.segment.fetcher.protocols=file,http,s3
+      pinot.controller.segment.fetcher.s3.class=org.apache.pinot.common.utils.fetcher.PinotFSSegmentFetcher
 
 # ------------------------------------------------------------------------------
 # Pinot Broker:
@@ -151,7 +157,7 @@ broker:
     # fsGroup: 2000
   securityContext: {}
 
-  jvmOpts: "-Xms256M -Xmx1G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-broker.log"
+  jvmOpts: "-Xms2G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-broker.log"
 
   log4j2ConfFile: /opt/pinot/conf/log4j2.xml
   pluginsDir: /opt/pinot/plugins
@@ -221,7 +227,7 @@ broker:
 # ------------------------------------------------------------------------------
 server:
   name: server
-  replicaCount: 1
+  replicaCount: 4
   podManagementPolicy: Parallel
   podSecurityContext: {}
     # fsGroup: 2000
@@ -238,12 +244,12 @@ server:
   persistence:
     enabled: true
     accessMode: ReadWriteOnce
-    size: 4G
+    size: 32G
     mountPath: /var/pinot/server/data
     storageClass: ""
     #storageClass: "ssd"
 
-  jvmOpts: "-Xms512M -Xmx1G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-server.log"
+  jvmOpts: "-Xms2G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-server.log"
 
   log4j2ConfFile: /opt/pinot/conf/log4j2.xml
   pluginsDir: /opt/pinot/plugins
@@ -297,6 +303,10 @@ server:
       pinot.set.instance.id.to.hostname=true
       pinot.server.instance.realtime.alloc.offheap=true
       pinot.server.instance.currentDataTableVersion=2
+      pinot.server.storage.factory.class.s3=org.apache.pinot.plugin.filesystem.S3PinotFS
+      pinot.server.storage.factory.s3.region=us-east-1
+      pinot.server.segment.fetcher.protocols=file,http,s3
+      pinot.server.segment.fetcher.s3.class=org.apache.pinot.common.utils.fetcher.PinotFSSegmentFetcher
 
 # ------------------------------------------------------------------------------
 # Pinot Minion:
