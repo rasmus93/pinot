@@ -83,13 +83,15 @@ controller:
     host: pinot-controller
     port: 9000
 
-  jvmOpts: "-Xms2G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-controller.log"
+  jvmOpts: "-Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-controller.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent-0.12.0.jar=8008:/opt/pinot/etc/jmx_prometheus_javaagent/configs/pinot.yml"
 
   log4j2ConfFile: /opt/pinot/conf/log4j2.xml
   pluginsDir: /opt/pinot/plugins
 
   service:
-    annotations: {}
+    annotations:
+      "prometheus.io/scrape": "true"
+      "prometheus.io/port": "8008"
     clusterIP: "None"
     externalIPs: []
     loadBalancerIP: ""
@@ -107,15 +109,31 @@ controller:
     annotations:
       service.beta.kubernetes.io/aws-load-balancer-internal: "true"
 
-  resources: {}
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 16Gi
+    limits:
+      cpu: 2000m
+      memory: 16Gi
 
   nodeSelector: {}
 
   tolerations: []
 
-  affinity: {}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: pinot-controller-node
+                operator: In
+                values:
+                  - "true"
 
-  podAnnotations: {}
+  podAnnotations:
+    "prometheus.io/scrape": "true"
+    "prometheus.io/port": "8008"
 
   updateStrategy:
     type: RollingUpdate
@@ -157,7 +175,7 @@ broker:
     # fsGroup: 2000
   securityContext: {}
 
-  jvmOpts: "-Xms2G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-broker.log"
+  jvmOpts: "-Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-broker.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent-0.12.0.jar=8008:/opt/pinot/etc/jmx_prometheus_javaagent/configs/pinot.yml"
 
   log4j2ConfFile: /opt/pinot/conf/log4j2.xml
   pluginsDir: /opt/pinot/plugins
@@ -171,7 +189,9 @@ broker:
     readinessEnabled: true
 
   service:
-    annotations: {}
+    annotations:
+      "prometheus.io/scrape": "true"
+      "prometheus.io/port": "8008"
     clusterIP: "None"
     externalIPs: []
     loadBalancerIP: ""
@@ -189,15 +209,31 @@ broker:
     # For example, in private GKE cluster, you might add cloud.google.com/load-balancer-type: Internal
     annotations: {}
 
-  resources: {}
+  resources:
+    requests:
+      cpu: 4000m
+      memory: 16Gi
+    limits:
+      cpu: 4000m
+      memory: 16Gi
 
   nodeSelector: {}
 
-  affinity: {}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: pinot-broker-node
+                operator: In
+                values:
+                  - "true"
 
   tolerations: []
 
-  podAnnotations: {}
+  podAnnotations:
+    "prometheus.io/scrape": "true"
+    "prometheus.io/port": "8008"
 
   updateStrategy:
     type: RollingUpdate
@@ -249,13 +285,15 @@ server:
     storageClass: ""
     #storageClass: "ssd"
 
-  jvmOpts: "-Xms2G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-server.log"
+  jvmOpts: "-Xms16G -Xmx16G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-server.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent-0.12.0.jar=8008:/opt/pinot/etc/jmx_prometheus_javaagent/configs/pinot.yml"
 
   log4j2ConfFile: /opt/pinot/conf/log4j2.xml
   pluginsDir: /opt/pinot/plugins
 
   service:
-    annotations: {}
+    annotations:
+      "prometheus.io/scrape": "true"
+      "prometheus.io/port": "8008"
     clusterIP: ""
     externalIPs: []
     loadBalancerIP: ""
@@ -269,7 +307,13 @@ server:
     nodePort: ""
     protocol: TCP
 
-  resources: {}
+  resources:
+    requests:
+      cpu: 7000m
+      memory: 60Gi
+    limits:
+      cpu: 7000m
+      memory: 60Gi
 
   nodeSelector: {}
 
@@ -277,7 +321,9 @@ server:
 
   tolerations: []
 
-  podAnnotations: {}
+  podAnnotations:
+    "prometheus.io/scrape": "true"
+    "prometheus.io/port": "8008"
 
   updateStrategy:
     type: RollingUpdate
@@ -307,6 +353,8 @@ server:
       pinot.server.storage.factory.s3.region=us-east-1
       pinot.server.segment.fetcher.protocols=file,http,s3
       pinot.server.segment.fetcher.s3.class=org.apache.pinot.common.utils.fetcher.PinotFSSegmentFetcher
+#      pinot.query.scheduler.query_runner_threads=8
+#      pinot.query.scheduler.query_worker_threads=48
 
 # ------------------------------------------------------------------------------
 # Pinot Minion:
@@ -354,7 +402,15 @@ minion:
 
   nodeSelector: {}
 
-  affinity: {}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: pinot-minion-node
+                operator: In
+                values:
+                  - "true"
 
   tolerations: []
 
