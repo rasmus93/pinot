@@ -21,7 +21,7 @@
 
 image:
   repository: apachepinot/pinot
-  tag: latest-jdk11 # release-0.7.1
+  tag: release-0.10.0 # 0.10.0-SNAPSHOT-65dcfe785e-20220208-jdk11 # 0.10.0-SNAPSHOT-34f371d1cb-20220131-jdk11 -working # 0.10.0-SNAPSHOT-3c98a44696-20220201-jdk11 - lookup fix # latest-jdk11 # release-0.7.1
   pullPolicy: IfNotPresent
 
 cluster:
@@ -71,7 +71,7 @@ controller:
   persistence:
     enabled: true
     accessMode: ReadWriteOnce
-    size: 1G
+    size: 30G
     mountPath: /var/pinot/controller/data
     storageClass: ""
 
@@ -83,7 +83,7 @@ controller:
     host: pinot-controller
     port: 9000
 
-  jvmOpts: "-Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-controller.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent-0.12.0.jar=8008:/opt/pinot/etc/jmx_prometheus_javaagent/configs/pinot.yml"
+  jvmOpts: "-Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-controller.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent-0.12.0.jar=8008:/opt/pinot/etc/jmx_prometheus_javaagent/configs/pinot.yml"
 
   log4j2ConfFile: /opt/pinot/conf/log4j2.xml
   pluginsDir: /opt/pinot/plugins
@@ -112,10 +112,10 @@ controller:
   resources:
     requests:
       cpu: 1000m
-      memory: 16Gi
+      memory: 8Gi
     limits:
-      cpu: 2000m
-      memory: 16Gi
+      cpu: 1000m
+      memory: 8Gi
 
   nodeSelector: {}
 
@@ -158,6 +158,7 @@ controller:
     configs: |-
       pinot.set.instance.id.to.hostname=true
       controller.task.scheduler.enabled=true
+      controller.enable.storage.quota.check=false
       controller.local.temp.dir=/tmp/pinot-tmp-data/
       pinot.controller.storage.factory.class.s3=org.apache.pinot.plugin.filesystem.S3PinotFS
       pinot.controller.storage.factory.s3.region=us-east-1
@@ -169,13 +170,13 @@ controller:
 # ------------------------------------------------------------------------------
 broker:
   name: broker
-  replicaCount: 1
+  replicaCount: 2
   podManagementPolicy: Parallel
   podSecurityContext: {}
     # fsGroup: 2000
   securityContext: {}
 
-  jvmOpts: "-Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-broker.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent-0.12.0.jar=8008:/opt/pinot/etc/jmx_prometheus_javaagent/configs/pinot.yml"
+  jvmOpts: "-Xms16G -Xmx16G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-broker.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent-0.12.0.jar=8008:/opt/pinot/etc/jmx_prometheus_javaagent/configs/pinot.yml"
 
   log4j2ConfFile: /opt/pinot/conf/log4j2.xml
   pluginsDir: /opt/pinot/plugins
@@ -212,10 +213,10 @@ broker:
   resources:
     requests:
       cpu: 4000m
-      memory: 16Gi
+      memory: 32Gi
     limits:
       cpu: 4000m
-      memory: 16Gi
+      memory: 32Gi
 
   nodeSelector: {}
 
@@ -263,7 +264,7 @@ broker:
 # ------------------------------------------------------------------------------
 server:
   name: server
-  replicaCount: 4
+  replicaCount: 10
   podManagementPolicy: Parallel
   podSecurityContext: {}
     # fsGroup: 2000
@@ -280,7 +281,7 @@ server:
   persistence:
     enabled: true
     accessMode: ReadWriteOnce
-    size: 32G
+    size: 290Gi
     mountPath: /var/pinot/server/data
     storageClass: ""
     #storageClass: "ssd"
@@ -309,15 +310,24 @@ server:
 
   resources:
     requests:
-      cpu: 7000m
+      cpu: 7500m
       memory: 60Gi
     limits:
-      cpu: 7000m
+      cpu: 7500m
       memory: 60Gi
 
   nodeSelector: {}
+#    aws.amazon.com/eks-local-ssd: "true"
 
-  affinity: {}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: pinot-server-node
+                operator: In
+                values:
+                  - "true"
 
   tolerations: []
 
@@ -353,8 +363,9 @@ server:
       pinot.server.storage.factory.s3.region=us-east-1
       pinot.server.segment.fetcher.protocols=file,http,s3
       pinot.server.segment.fetcher.s3.class=org.apache.pinot.common.utils.fetcher.PinotFSSegmentFetcher
-#      pinot.query.scheduler.query_runner_threads=8
-#      pinot.query.scheduler.query_worker_threads=48
+      pinot.server.instance.enableThreadCpuTimeMeasurement=true
+#      pinot.query.scheduler.query_runner_threads=30
+#      pinot.query.scheduler.query_worker_threads=60
 
 # ------------------------------------------------------------------------------
 # Pinot Minion:
@@ -458,7 +469,13 @@ zookeeper:
 
   ## Configure Zookeeper resource requests and limits
   ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  resources: {}
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
   ## Replicas
   replicaCount: 1
@@ -471,17 +488,36 @@ zookeeper:
   persistence:
     enabled: true
     ## The amount of PV storage allocated to each Zookeeper pod in the statefulset
-    # size: "2Gi"
+    size: "30Gi"
 
   ## Specify a Zookeeper imagePullPolicy
   ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
   image:
     PullPolicy: "IfNotPresent"
 
+#  podAnnotations:
+#    prometheus.io/scrape: "true"
+#    prometheus.io/path: "/metrics"
+#    prometheus.io/port: "9141"
+#
+#  exporters:
+#    zookeeper:
+#      enabled: true
+#    jmx:
+#      enabled: true
+
   ## Pod scheduling preferences (by default keep pods within a release on separate nodes).
   ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
   ## By default we don't set affinity:
-  affinity: {}  # Criteria by which pod label-values influence scheduling for zookeeper pods.
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: pinot-zookeper-node
+                operator: In
+                values:
+                  - "true"
   # podAntiAffinity:
   #   requiredDuringSchedulingIgnoredDuringExecution:
   #     - topologyKey: "kubernetes.io/hostname"

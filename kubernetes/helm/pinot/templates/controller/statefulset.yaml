@@ -100,26 +100,25 @@ spec:
       - name: config
         configMap:
           name: {{ include "pinot.controller.config" . }}
-{{- if .Values.controller.persistence.enabled }}
+{{- if not .Values.controller.persistence.enabled }}
       - name: data
-        persistentVolumeClaim:
-          claimName: data-pinot-controller-0-1b
+        emptyDir: {}
 {{- end }}
-#{{- if .Values.controller.persistence.enabled }}
-#  volumeClaimTemplates:
-#    - metadata:
-#        name: data
-#      spec:
-#        accessModes:
-#          - {{ .Values.controller.persistence.accessMode | quote }}
-#        {{- if .Values.controller.persistence.storageClass }}
-#        {{- if (eq "-" .Values.controller.persistence.storageClass) }}
-#        storageClassName: ""
-#        {{- else }}
-#        storageClassName: {{ .Values.controller.persistence.storageClass }}
-#        {{- end }}
-#        {{- end }}
-#        resources:
-#          requests:
-#            storage: {{ .Values.controller.persistence.size | quote}}
-#{{ end }}
+{{- if .Values.controller.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - {{ .Values.controller.persistence.accessMode | quote }}
+        {{- if .Values.controller.persistence.storageClass }}
+        {{- if (eq "-" .Values.controller.persistence.storageClass) }}
+        storageClassName: ""
+        {{- else }}
+        storageClassName: {{ .Values.controller.persistence.storageClass }}
+        {{- end }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.controller.persistence.size | quote}}
+{{ end }}
