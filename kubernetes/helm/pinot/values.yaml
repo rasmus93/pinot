@@ -208,7 +208,8 @@ broker:
     type: LoadBalancer
     port: 8099
     # For example, in private GKE cluster, you might add cloud.google.com/load-balancer-type: Internal
-    annotations: {}
+    annotations: 
+      service.beta.kubernetes.io/aws-load-balancer-internal: "true"
 
   resources:
     requests:
