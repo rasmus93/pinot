@@ -111,11 +111,11 @@ controller:
 
   resources:
     requests:
-      cpu: 1000m
-      memory: 8Gi
+      cpu: 3000m
+      memory: 16Gi
     limits:
-      cpu: 1000m
-      memory: 8Gi
+      cpu: 3000m
+      memory: 16Gi
 
   nodeSelector: {}
 
@@ -158,12 +158,15 @@ controller:
     configs: |-
       pinot.set.instance.id.to.hostname=true
       controller.task.scheduler.enabled=true
+      controller.task.frequencyPeriod=1h
       controller.enable.storage.quota.check=false
       controller.local.temp.dir=/tmp/pinot-tmp-data/
       pinot.controller.storage.factory.class.s3=org.apache.pinot.plugin.filesystem.S3PinotFS
       pinot.controller.storage.factory.s3.region=us-east-1
       pinot.controller.segment.fetcher.protocols=file,http,s3
       pinot.controller.segment.fetcher.s3.class=org.apache.pinot.common.utils.fetcher.PinotFSSegmentFetcher
+      controller.vip.enabled=true
+      controller.vip.host=internal-a29b94f4238a34276a807c1a7f282a34-1529462077.us-east-1.elb.amazonaws.com
 
 # ------------------------------------------------------------------------------
 # Pinot Broker:
@@ -385,7 +388,7 @@ minion:
     readinessEnabled: false
 
   dataDir: /var/pinot/minion/data
-  jvmOpts: "-Xms256M -Xmx1G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-minion.log"
+  jvmOpts: "-Xms2G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-minion.log"
 
   log4j2ConfFile: /opt/pinot/conf/log4j2.xml
   pluginsDir: /opt/pinot/plugins
@@ -410,7 +413,13 @@ minion:
     protocol: TCP
     name: minion
 
-  resources: {}
+  resources:
+    requests:
+      cpu: 1800m
+      memory: 8Gi
+    limits:
+      cpu: 1800m
+      memory: 8Gi
 
   nodeSelector: {}
 
@@ -450,6 +459,10 @@ minion:
   extra:
     configs: |-
       pinot.set.instance.id.to.hostname=true
+      pinot.minion.storage.factory.class.s3=org.apache.pinot.plugin.filesystem.S3PinotFS
+      pinot.minion.storage.factory.s3.region=us-east-1
+      pinot.minion.segment.fetcher.protocols=file,http,s3
+      pinot.minion.segment.fetcher.s3.class=org.apache.pinot.common.utils.fetcher.PinotFSSegmentFetcher
 
 # ------------------------------------------------------------------------------
 # Zookeeper:
@@ -472,11 +485,11 @@ zookeeper:
   ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
   resources:
     requests:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 2000m
+      memory: 4Gi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 2000m
+      memory: 4Gi
 
   ## Replicas
   replicaCount: 1
@@ -484,7 +497,7 @@ zookeeper:
   ## Environmental variables to set in Zookeeper
   env:
     ## The JVM heap size to allocate to Zookeeper
-    ZK_HEAP_SIZE: "256M"
+    ZK_HEAP_SIZE: "1024M"
 
   persistence:
     enabled: true
@@ -496,7 +509,23 @@ zookeeper:
   image:
     PullPolicy: "IfNotPresent"
 
-#  podAnnotations:
+  livenessProbe:
+    enabled: false
+  readinessProbe:
+    enabled: false
+  dataLogDir: /bitnami/zookeeper/datalog
+
+  ## Ongoing data directory cleanup configuration
+  autopurge:
+
+    ## The time interval (in hours) for which the purge task has to be triggered
+    ## Set to a positive integer to enable the auto purging
+    purgeInterval: 24
+
+    ## The most recent snapshots amount (and corresponding transaction logs) to retain
+    snapRetainCount: 10
+
+  #  podAnnotations:
 #    prometheus.io/scrape: "true"
 #    prometheus.io/path: "/metrics"
 #    prometheus.io/port: "9141"
