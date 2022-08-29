@@ -25,7 +25,7 @@ image:
   pullPolicy: IfNotPresent
 
 cluster:
-  name: pinot-poc-cluster
+  name: pinot-poc-cluster-new
 
 imagePullSecrets: []
 
@@ -71,7 +71,7 @@ controller:
   persistence:
     enabled: true
     accessMode: ReadWriteOnce
-    size: 30G
+    size: 15G
     mountPath: /var/pinot/controller/data
     storageClass: ""
 
@@ -166,7 +166,7 @@ controller:
       pinot.controller.segment.fetcher.protocols=file,http,s3
       pinot.controller.segment.fetcher.s3.class=org.apache.pinot.common.utils.fetcher.PinotFSSegmentFetcher
       controller.vip.enabled=true
-      controller.vip.host=internal-a29b94f4238a34276a807c1a7f282a34-1529462077.us-east-1.elb.amazonaws.com
+      controller.vip.host=internal-a4cb7feaefcfb40bd89f422b22382bfc-1435608294.us-east-1.elb.amazonaws.com
 
 # ------------------------------------------------------------------------------
 # Pinot Broker:
@@ -268,7 +268,7 @@ broker:
 # ------------------------------------------------------------------------------
 server:
   name: server
-  replicaCount: 10
+  replicaCount: 5
   podManagementPolicy: Parallel
   podSecurityContext: {}
     # fsGroup: 2000
@@ -285,12 +285,12 @@ server:
   persistence:
     enabled: true
     accessMode: ReadWriteOnce
-    size: 290Gi
+    size: 500Gi
     mountPath: /var/pinot/server/data
     storageClass: ""
     #storageClass: "ssd"
 
-  jvmOpts: "-Xms16G -Xmx16G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/gc-pinot-server.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent-0.12.0.jar=8008:/opt/pinot/etc/jmx_prometheus_javaagent/configs/pinot.yml"
+  jvmOpts: "-Xms32G -Xmx32G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/oom_heap_dump.hprof -Xlog:gc*:file=/opt/pinot/gc-pinot-server.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent-0.12.0.jar=8008:/opt/pinot/etc/jmx_prometheus_javaagent/configs/pinot.yml"
 
   log4j2ConfFile: /opt/pinot/conf/log4j2.xml
   pluginsDir: /opt/pinot/plugins
@@ -328,10 +328,10 @@ server:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
-              - key: pinot-server-node
+              - key: alpha.eksctl.io/nodegroup-name
                 operator: In
                 values:
-                  - "true"
+                  - "ng-pinot-server"
 
   tolerations: []
 
@@ -367,7 +367,7 @@ server:
       pinot.server.storage.factory.s3.region=us-east-1
       pinot.server.segment.fetcher.protocols=file,http,s3
       pinot.server.segment.fetcher.s3.class=org.apache.pinot.common.utils.fetcher.PinotFSSegmentFetcher
-      pinot.server.instance.enableThreadCpuTimeMeasurement=true
+#      pinot.server.instance.enableThreadCpuTimeMeasurement=true
 #      pinot.query.scheduler.query_runner_threads=30
 #      pinot.query.scheduler.query_worker_threads=60
 
@@ -396,7 +396,7 @@ minion:
   persistence:
     enabled: true
     accessMode: ReadWriteOnce
-    size: 4G
+    size: 30G
     mountPath: /var/pinot/minion/data
     storageClass: ""
     #storageClass: "ssd"
@@ -415,10 +415,10 @@ minion:
 
   resources:
     requests:
-      cpu: 1800m
+      cpu: 1700m
       memory: 8Gi
     limits:
-      cpu: 1800m
+      cpu: 1700m
       memory: 8Gi
 
   nodeSelector: {}
@@ -502,18 +502,18 @@ zookeeper:
   persistence:
     enabled: true
     ## The amount of PV storage allocated to each Zookeeper pod in the statefulset
-    size: "30Gi"
+    size: "15Gi"
 
   ## Specify a Zookeeper imagePullPolicy
   ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
   image:
     PullPolicy: "IfNotPresent"
 
-  livenessProbe:
-    enabled: false
-  readinessProbe:
-    enabled: false
-  dataLogDir: /bitnami/zookeeper/datalog
+#  livenessProbe:
+#    enabled: false
+#  readinessProbe:
+#    enabled: false
+#  dataLogDir: /bitnami/zookeeper/datalog
 
   ## Ongoing data directory cleanup configuration
   autopurge:
